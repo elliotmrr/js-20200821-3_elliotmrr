@@ -12,7 +12,7 @@ export default class SortableTable {
 
   onWindowScroll = async () => {
     const { bottom } = this.element.getBoundingClientRect();
-    const { id, order } = this.sorted;
+    const { id, order } = this.sorting;
 
     if (bottom < document.documentElement.clientHeight && !this.loading && !this.isSortLocally) {
       this.start = this.end;
