@@ -24,8 +24,8 @@ export default class RangePicker {
     to = new Date(),
   } = {}) {
     if (!from) {
-      from = end;
-      from.setMonth(end.getMonth() - 2);
+      from = new Date(to);
+      from.setMonth(to.getMonth() - 2);
     }
 
     this.selected = {from, to};
