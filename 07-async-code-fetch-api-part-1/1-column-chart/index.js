@@ -1,6 +1,7 @@
 import fetchJson from './utils/fetch-json.js';
 
 const BACKEND_URL = 'https://course-js.javascript.ru';
+const LOCALES = ["ru-RU", "ru-BY", "en-GB", "en-US"];
 
 export default class ColumnChart {
   element; // HTMLElement;
@@ -24,15 +25,72 @@ export default class ColumnChart {
     this.range = range;
 
     this.render();
-    this.loadData(this.range.from, this.range.to);
+    this.update(this.range.from, this.range.to);
   }
 
   render() {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = this.template;
-    this.element = wrapper.firstElementChild;
+    const element = document.createElement('div');
+    element.innerHTML = this.template;
+    this.element = element.firstElementChild;
 
     this.subElements = this.getSubElements(this.element);
+  }
+
+  async update(from, to) {
+    this.element.classList.add('column-chart_loading');
+    this.subElements.header.textContent = '';
+    this.subElements.body.innerHTML = '';
+
+    this.setNewRange(from, to);
+
+    const data = await this.loadData(from, to);
+
+    if (data && Object.values(data).length) {
+      this.subElements.header.textContent = this.getHeaderValue(data);
+      this.subElements.body.innerHTML = this.getColumnBody(data);
+
+      this.element.classList.remove('column-chart_loading');
+    }
+
+    return data;
+  }
+
+  setNewRange(from, to) {
+    this.range.from = from;
+    this.range.to = to;
+  }
+
+  async loadData(from, to) {
+    this.url.searchParams.set('from', from.toISOString());
+    this.url.searchParams.set('to', to.toISOString());
+
+    return await fetchJson(this.url);
+  }
+
+  getLink() {
+    return this.link ? `<a class="column-chart__link" href="${this.link}">View all</a>` : '';
+  }
+
+  getHeaderValue(data) {
+    return this.formatHeading(Object.values(data).reduce((accum, item) => (accum + item), 0));
+  }
+
+  getColumnBody(data) {
+    const maxValue = Math.max(...Object.values(data));
+    const scale = this.chartHeight / maxValue;
+
+    return Object.entries(data).map(([key, value]) => {
+      const percent = (value / maxValue * 100).toFixed(0);
+      const tooltip = `
+        <span>
+          <small>${key.toLocaleString(LOCALES, {dateStyle: 'medium'})}</small>
+          <br />
+          <strong>${percent}%</strong>
+        </span>
+      `;
+
+      return `<div style="--value: ${Math.floor(value * scale)}" data-tooltip="${tooltip}"></div>`;
+    }).join('');
   }
 
   getSubElements(element) {
@@ -45,68 +103,15 @@ export default class ColumnChart {
     }, {});
   }
 
-  getLink() {
-    return this.link ? `<a class="column-chart__link" href="${this.link}">View all</a>` : '';
-  }
-
-  getColumnBody(data) {
-    const maxValue = Math.max(...Object.values(data));
-    const scale = this.chartHeight / maxValue;
-
-    return Object.entries(data).map(([key, value]) => {
-      const percent = (value / maxValue * 100).toFixed(0);
-      const tooltip = `<span>
-        <small>${key.toLocaleString(['ru', 'en'], {dateStyle: 'medium'})}</small>
-        <br />
-        <strong>${percent}%</strong>
-      </span>`;
-
-      return `<div style="--value: ${Math.floor(value * scale)}" data-tooltip="${tooltip}"></div>`;
-    }).join('');
-  }
-
-  getHeaderValue(data) {
-    return this.formatHeading(Object.values(data).reduce((accum, item) => (accum + item), 0));
-  }
-
-  setNewRange(from, to) {
-    this.range.from = from;
-    this.range.to = to;
-  }
-
-  async loadData(from, to) {
-    this.element.classList.add('column-chart_loading');
-    this.subElements.header.textContent = '';
-    this.subElements.body.innerHTML = '';
-    this.url.searchParams.set('from', from.toISOString());
-    this.url.searchParams.set('to', to.toISOString());
-
-    const data = await fetchJson(this.url, {});
-
-    this.setNewRange(from, to);
-
-    if (data && Object.values(data).length) {
-      this.subElements.header.textContent = this.getHeaderValue(data);
-      this.subElements.body.innerHTML = this.getColumnBody(data);
-
-      this.element.classList.remove('column-chart_loading');
-    }
-  }
-
-  async update(from, to) {
-    return await this.loadData(from, to);
-  }
-
-  remove () {
+  remove() {
     this.element.remove();
   }
 
   destroy() {
     this.remove();
+    this.element = null;
     this.subElements = {};
   }
-
-  /* Accessors */
 
   get template() {
     return `
